@@ -1,0 +1,9 @@
+<!-- legged_robot_controller publisher -->
+<library path="lib/legged_robot_controller">
+    <class name="legged_robot_controller/legged_robot_controller" type="legged_robot_controller"
+           base_class_type="node::Node">
+        <description>
+            Legged robot controller publisher.
+        </description>
+    </class>
+</library>

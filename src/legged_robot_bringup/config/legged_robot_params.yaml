@@ -1,0 +1,154 @@
+/spider:
+  legged_robot_parameter_server:
+    ros__parameters:
+      # Configurable Settings
+
+      # Non teleop mode for naviagtion stack, Gazebo, etc type modes.
+      # Controller will still have standup and sitdown functions for safty reasons
+      NON_TELEOP: false
+
+      # Speed limit in Hz for the master loop rate
+      MASTER_LOOP_RATE: 500
+
+      # Static time division to convert cmd_vel into segments for controller loop
+      VELOCITY_DIVISION: 0.033
+
+      # Twist Max Values
+      # Currently these are set from a topic echo of the "twist" message coming out of the locomotion node.
+      MAX_METERS_PER_SEC: 0.0723589
+      MAX_RADIANS_PER_SEC: 16.629
+
+      # Number of head segments
+      # First segment would be yaw, second would be pitch
+      NUMBER_OF_HEAD_SEGMENTS: 0
+
+      # Number of Legs
+      NUMBER_OF_LEGS: 8
+
+      # Number of leg segments ( 3dof or 4dof )
+      NUMBER_OF_LEG_SEGMENTS: 4
+
+      #IK algorithm REACHING or STANDARD
+      #reaching uses FABRIK algorithm for leg IK
+      #standard is the more traditional IK where algorithm tries to maintain a relatively perpendicular tarsus
+      ALGORITHM: REACHING
+
+      # Define Initial Coxa Offsets in Radians
+      #   Leg Order
+      #     Front
+      #   1       2
+      #   3       4
+      #   5       6
+      #   7       8
+      #
+      # IK is solved in local space currently, hence the reason right and left have same angle offsets.
+      INIT_COXA_ANGLE: [ -45.00, 0.00, 45.00, -45.00, 0.00, 45.00 ]
+
+      # Define distance in meters from coxa joint to the center of the body
+      #   Leg Order
+      #     Front
+      #   1       2
+      #   3       4
+      #   5       6
+      #   7       8
+      #
+      # IK is solved in local space currently, hence the reason right and left have same distance values
+      COXA_TO_CENTER_X: [ 0.077058, 0.077058, 0.00, 0.00, -0.076192, -0.076192, -0.133242, -0.133242 ]
+      COXA_TO_CENTER_Y: [ 0.098274, -0.098274, 0.125555, -0.125555, 0.111869, -0.111869, 0.074327, -0.074327 ]
+
+      # Define Start Position Of Feet in meters from the center of the body
+      #   Leg Order
+      #     Front
+      #   1       2
+      #   3       4
+      #   5       6
+      #   7       8
+      #
+      # IK is solved in local space currently, hence the reason right and left have same distance values
+      INIT_FOOT_POS_X: [ 0.436607, 0.436607, 0.24932, 0.24932, -0.226421, -0.226421, -0.485512, -0.485512 ]
+      INIT_FOOT_POS_Y: [ 192.864, -192.864, 401.35, -401.35, 451.949, -451.949, 193.191, -193.191 ]
+      INIT_FOOT_POS_Z: [ 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00 ]
+
+      # Define Leg Measurements in meters ('coxa', 'femur', 'tibia', 'tarsus')
+      LENGTHS: [ 0.0622, 0.149828, 0.148971, 0.1401 ]
+      COXA_LENGTH: 0.0622
+      FEMUR_LENGTH: 0.149828
+      TIBIA_LENGTH: 0.148971
+      TARSUS_LENGTH: 0.1401
+
+      # Body FK maximum rotation
+      BODY_MAX_ROLL: 8
+      BODY_MAX_PITCH: 8
+
+      # Body Standing Height
+      STANDING_BODY_HEIGHT: 0.07915
+
+      # Head FK maximum rotation
+      HEAD_MAX_YAW: 16
+      HEAD_MAX_PITCH: 16
+
+      # Body auto levelling parameters
+      MAX_BODY_ROLL_COMP: 12
+      MAX_BODY_PITCH_COMP: 12
+      COMPENSATE_INCREMENT: 0.01
+      COMPENSATE_TO_WITHIN: 1
+
+      # Cycle length is the number of periods the travel is divided into ( Gait Settings )
+      CYCLE_LENGTH: 50
+
+      # Leg lift height is the max distance in meters the foot is lifted off the ground in a full step ( Gait Settings )
+      # If you set this to close to the total measurement of your femur and tibia the leg IK calculation might fail
+      LEG_LIFT_HEIGHT: 0.04
+
+      # Current gait styles are RIPPLE or TRIPOD for hexapods and TETRAPOD for arachnids
+      GAIT_STYLE: "TRIPOD"
+
+      # Speed in Hz that the servos interpolate between gait poses
+      INTERPOLATION_LOOP_RATE: 900
+
+      # Dynamixel protocol to use
+      PROTOCOL_VERSION: 2
+
+      # Servo descriptions
+      # The servo numbering convention used is..
+      #
+      SERVOS: {
+        '01': { name: Coxa_L1, type: XM, id: 11, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '02': { name: Femur_L1, type: XM, id: 12, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '03': { name: Tibia_L1, type: XM, id: 13, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '04': { name: Tarsus_L1, type: XM, id: 14, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '05': { name: Coxa_L2, type: XM, id: 21, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '06': { name: Femur_L2, type: XM, id: 22, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '07': { name: Tibia_L2, type: XM, id: 23, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '08': { name: Tarsus_L2, type: XM, id: 24, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '09': { name: Coxa_L3, type: XM, id: 31, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '10': { name: Femur_L3, type: XM, id: 32, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '11': { name: Tibia_L3, type: XM, id: 33, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '12': { name: Tarsus_L3, type: XM, id: 34, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '13': { name: Coxa_L4, type: XM, id: 41, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '14': { name: Femur_L4, type: XM, id: 42, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '15': { name: Tibia_L4, type: XM, id: 43, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '16': { name: Tarsus_L4, type: XM, id: 44, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '17': { name: Coxa_L5, type: XM, id: 51, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '18': { name: Femur_L5, type: XM, id: 52, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '19': { name: Tibia_L5, type: XM, id: 53, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '20': { name: Tarsus_L5, type: XM, id: 54, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '21': { name: Coxa_L6, type: XM, id: 61, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '22': { name: Femur_L6, type: XM, id: 62, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '23': { name: Tibia_L6, type: XM, id: 63, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '24': { name: Tarsus_L6, type: XM, id: 64, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '25': { name: Coxa_L7, type: XM, id: 71, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '26': { name: Femur_L7, type: XM, id: 72, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '27': { name: Tibia_L7, type: XM, id: 73, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '28': { name: Tarsus_L7, type: XM, id: 74, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '29': { name: Coxa_L8, type: XM, id: 81, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '30': { name: Femur_L8, type: XM, id: 82, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '31': { name: Tibia_L8, type: XM, id: 83, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '32': { name: Tarsus_L8, type: XM, id: 84, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+      }
+
+      BODY_SERVOS: {
+        '33': { name: Abdomen, type: XH, id: 1, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 },
+        '34': { name: Fang1, type: XL, id: 2, ticks: 4096, center: 2048, max_radians: 360, sign: 1, offset: 0.00 },
+        '35': { name: Fang2, type: XL, id: 3, ticks: 4096, center: 2048, max_radians: 360, sign: -1, offset: 0.00 }
+      }

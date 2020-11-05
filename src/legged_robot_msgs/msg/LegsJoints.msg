@@ -1,0 +1,1 @@
+legged_robot_msgs/LegJoints[6] leg
