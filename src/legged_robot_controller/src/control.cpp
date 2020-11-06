@@ -33,27 +33,66 @@
 static const double PI = atan(1.0)*4.0;
 
 //==============================================================================
+//  Global Parameter Client
+//==============================================================================
+
+ControlParams::GetControlParams() : Node("get_control_params") {
+    parameters_client =
+            std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
+
+    parameters_client->wait_for_service();
+    auto parameters_future = parameters_client->get_parameters(
+            {"NUMBER_OF_LEGS",
+             "NUMBER_OF_LEG_SEGMENTS",
+             "NUMBER_OF_HEAD_SEGMENTS",
+             "BODY_MAX_ROLL",
+             "BODY_MAX_PITCH",
+             "BODY_MAX_YAW",
+             "HEAD_MAX_YAW",
+             "HEAD_MAX_PITCH",
+             "STANDING_BODY_HEIGHT",
+             "SERVOS",
+             "MAX_BODY_ROLL_COMP",
+             "MAX_BODY_PITCH_COMP",
+             "COMPENSATE_INCREMENT",
+             "COMPENSATE_TO_WITHIN",
+             "MASTER_LOOP_RATE",
+             "VELOCITY_DIVISION"
+            },
+            std::bind(&ControlParams::callbackControlParam, this, std::placeholders::_1));
+}
+
+void ControlParams::callbackControlParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+}
+
+//==============================================================================
 // Constructor
 //==============================================================================
 
 Control::Control( void )
 {
-    rclcpp::param::get( "NUMBER_OF_LEGS", NUMBER_OF_LEGS );
-    rclcpp::param::get( "NUMBER_OF_LEG_SEGMENTS", NUMBER_OF_LEG_JOINTS );
-    rclcpp::param::get( "NUMBER_OF_HEAD_SEGMENTS", NUMBER_OF_HEAD_JOINTS );
-    rclcpp::param::get( "BODY_MAX_ROLL", BODY_MAX_ROLL );
-    rclcpp::param::get( "BODY_MAX_PITCH", BODY_MAX_PITCH );
-    rclcpp::param::get( "BODY_MAX_YAW", BODY_MAX_YAW );
-    rclcpp::param::get( "HEAD_MAX_YAW", HEAD_MAX_YAW );
-    rclcpp::param::get( "HEAD_MAX_PITCH", HEAD_MAX_PITCH );
-    rclcpp::param::get( "STANDING_BODY_HEIGHT", STANDING_BODY_HEIGHT );
-    rclcpp::param::get( "SERVOS", SERVOS );
-    rclcpp::param::get( "MAX_BODY_ROLL_COMP", MAX_BODY_ROLL_COMP );
-    rclcpp::param::get( "MAX_BODY_PITCH_COMP", MAX_BODY_PITCH_COMP );
-    rclcpp::param::get( "COMPENSATE_INCREMENT", COMPENSATE_INCREMENT );
-    rclcpp::param::get( "COMPENSATE_TO_WITHIN", COMPENSATE_TO_WITHIN );
-    rclcpp::param::get( "MASTER_LOOP_RATE", MASTER_LOOP_RATE );
-    rclcpp::param::get( "VELOCITY_DIVISION", VELOCITY_DIVISION );
+
+    ControlParams controlparams;
+
+    NUMBER_OF_LEGS = controlparams.callbackControlParam(get().at(0));
+    NUMBER_OF_LEG_JOINTS = controlparams.callbackControlParam(get().at(1));
+    NUMBER_OF_HEAD_JOINTS = controlparams.callbackControlParam(get().at(2));
+    BODY_MAX_ROLL = controlparams.callbackControlParam(get().at(3));
+    BODY_MAX_PITCH = controlparams.callbackControlParam(get().at(4));
+    BODY_MAX_YAW = controlparams.callbackControlParam(get().at(5));
+    HEAD_MAX_YAW = controlparams.callbackControlParam(get().at(6));
+    HEAD_MAX_PITCH = controlparams.callbackControlParam(get().at(7));
+    STANDING_BODY_HEIGHT = controlparams.callbackControlParam(get().at(8));
+    SERVOS = controlparams.callbackControlParam(get().at(9));
+    MAX_BODY_ROLL_COMP = controlparams.callbackControlParam(get().at(10));
+    MAX_BODY_PITCH_COMP = controlparams.callbackControlParam(get().at(11));
+    COMPENSATE_INCREMENT = controlparams.callbackControlParam(get().at(12));
+    COMPENSATE_TO_WITHIN = controlparams.callbackControlParam(get().at(13));
+    MASTER_LOOP_RATE = controlparams.callbackControlParam(get().at(14));
+    VELOCITY_DIVISION = controlparams.callbackControlParam(get().at(15));
+
+
+
     current_time_odometry_ = rclcpp::Time::now();
     last_time_odometry_ = rclcpp::Time::now();
     current_time_cmd_vel_ = rclcpp::Time::now();
@@ -67,9 +106,11 @@ Control::Control( void )
     for( int i = 0; i < SERVO_COUNT; i++ )
     {
         int j = i+1;
-        std::string(k)  = std::to_string(j);
-        rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/name"), servo_names_[i] );
-        rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/sign"), servo_orientation_[i] );
+        servo_names_[i] = SERVOS[j].find("name");
+        servo_orientation_[i] = SERVOS[j].find("sign");
+
+    //    rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/name"), servo_names_[i] );
+    //    rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/sign"), servo_orientation_[i] );
     }
     prev_legged_robot_state_ = false;
     legged_robot_state_ = false;

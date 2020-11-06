@@ -29,6 +29,33 @@
 // Author: Robert M. Dome
 
 #include <ik.hpp>
+//==============================================================================
+//  Global Parameter Client
+//==============================================================================
+
+IKParams::GetIKParams() : Node("get_ik_params") {
+    parameters_client =
+            std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
+
+    parameters_client->wait_for_service();
+    auto parameters_future = parameters_client->get_parameters(
+            {"COXA_TO_CENTER_X",
+             "COXA_TO_CENTER_Y",
+             "INIT_COXA_ANGLE",
+             "INIT_FOOT_POS_X",
+             "INIT_FOOT_POS_Y",
+             "INIT_FOOT_POS_Z"
+             "LENGTHS",
+             "NUMBER_OF_LEGS",
+             "NUMBER_OF_LEG_SEGMENTS",
+             "ALGORITHM"
+            },
+            std::bind(&IKParams::callbackIKParam, this, std::placeholders::_1));
+}
+
+void IKParams::callbackIKParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+}
+
 
 //==============================================================================
 //  Constructor: Initialize ik variables
@@ -39,28 +66,30 @@ Ik::Ik(void) {
     // Define Physical Measurements in m <config file>
     //=============================================================================
 
-    rclcpp::param::get("COXA_TO_CENTER_X", COXA_TO_CENTER_X);
-    rclcpp::param::get("COXA_TO_CENTER_Y", COXA_TO_CENTER_Y);
-    rclcpp::param::get("INIT_COXA_ANGLE", INIT_COXA_ANGLE);
-    rclcpp::param::get("INIT_FOOT_POS_X", INIT_FOOT_POS_X);
-    rclcpp::param::get("INIT_FOOT_POS_Y", INIT_FOOT_POS_Y);
-    rclcpp::param::get("INIT_FOOT_POS_Z", INIT_FOOT_POS_Z);
-    rclcpp::param::get("LENGTHS", LENGTHS);
-    rclcpp::param::get("NUMBER_OF_LEGS", NUMBER_OF_LEGS);
-    rclcpp::param::get("NUMBER_OF_LEG_SEGMENTS", NUMBER_OF_LEG_SEGMENTS);
-    rclcpp::param::get("ALGORITHM", ALGORITHM);
+    IKParams ikparams;
+
+    COXA_TO_CENTER_X = ikparams.callbackIKParam(get().at(0));
+    COXA_TO_CENTER_Y = ikparams.callbackIKParam(get().at(1));
+    INIT_COXA_ANGLE = ikparams.callbackIKParam(get().at(2));
+    INIT_FOOT_POS_X = ikparams.callbackIKParam(get().at(3));
+    INIT_FOOT_POS_Y = ikparams.callbackIKParam(get().at(4));
+    INIT_FOOT_POS_Z = ikparams.callbackIKParam(get().at(5));
+    LENGTHS = ikparams.callbackIKParam(get().at(6));
+    NUMBER_OF_LEGS = ikparams.callbackIKParam(get().at(7));
+    NUMBER_OF_LEG_SEGMENTS = ikparams.callbackIKParam(get().at(8));
+    ALGORITHM = ikparams.callbackIKParam(get().at(9));
+
 }
 
 //=============================================================================
 // getSinCos:  Get the sinus and cosinus from the angle
 //=============================================================================
 
-Trig Ik::getSinCos( double angle_rad )
-{
+Trig Ik::getSinCos(double angle_rad) {
     Trig body_trig;
 
-    body_trig.sine = sin( angle_rad );
-    body_trig.cosine = cos( angle_rad );
+    body_trig.sine = sin(angle_rad);
+    body_trig.cosine = cos(angle_rad);
 
     return body_trig;
 }
@@ -298,7 +327,8 @@ void Ik::calculateIK(const legged_robot_msgs::msg::FeetPositions &feet, const le
             double femur_to_tarsus = sqrt(pow(feet_pos_x, 2) + pow(feet_pos_y, 2)) - COXA_LENGTH;
 
             if (std::abs(femur_to_tarsus) > (FEMUR_LENGTH + TIBIA_LENGTH)) {
-                RCLCPP_FATAL(node->get_logger(), "IK Solver cannot solve a foot position that is not within leg reach!!!");
+                RCLCPP_FATAL(node->get_logger(),
+                             "IK Solver cannot solve a foot position that is not within leg reach!!!");
                 RCLCPP_FATAL(node->get_logger(), "Shutting down so configuration can be fixed!!!");
                 RCLCPP::shutdown();
                 break;

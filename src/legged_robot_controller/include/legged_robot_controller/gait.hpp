@@ -42,29 +42,45 @@
 //=============================================================================
 // Define structs and classes for gait system
 //=============================================================================
-class Gait
-{
-    public:
-        Gait( void );
-        void gaitCycle( const geometry_msgs::msg::Twist &cmd_vel, legged_robot_msgs::msg::FeetPositions *feet, geometry_msgs::msg::Twist *gait_vel );
-    private:
-        void cyclePeriod( const geometry_msgs::msg::Pose2D &base, legged_robot_msgs::msg::FeetPositions *feet, geometry_msgs::msg::Twist *gait_vel );
-        void sequence_change( std::vector<int> &vec );
-        geometry_msgs::msg::Pose2D smooth_base_;
-        rclcpp::Time current_time_, last_time_;
-        bool is_travelling_;      // True if the robot is moving, not just in a cycle
-        bool in_cycle_;           // True if the robot is in a gait cycle
-        int CYCLE_LENGTH;         // Number of steps in cycle
-        int NUMBER_OF_LEGS;       // Leg order in cycle of the leg
-        double LEG_LIFT_HEIGHT;   // Height of a leg cycle
-        std::string GAIT_STYLE;    // gait style Tripod or Ripple
-        int cycle_period_;        // Current period in cycle
-        int extra_gait_cycle_;    // Forcing some extra timed cycles
-        double period_distance;
-        double period_height;
-        double gait_factor;
-        std::vector<int> cycle_leg_number_; // Leg gait order (grouping) ['RR', 'RM', 'RF', 'LR', 'LM', 'LF']
-        std::shared_ptr<rclcpp::AsyncParametersClient> parameters_client;
+
+class GaitParams : public rclcpp::Node {
+public:
+    GetGaitParams();
+
+    void callbackGaitParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
+
+private:
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
+};
+
+class Gait {
+public:
+    Gait(void);
+
+    void gaitCycle(const geometry_msgs::msg::Twist &cmd_vel, legged_robot_msgs::msg::FeetPositions *feet,
+                   geometry_msgs::msg::Twist *gait_vel);
+
+private:
+    void cyclePeriod(const geometry_msgs::msg::Pose2D &base, legged_robot_msgs::msg::FeetPositions *feet,
+                     geometry_msgs::msg::Twist *gait_vel);
+
+    void sequence_change(std::vector<int> &vec);
+
+    geometry_msgs::msg::Pose2D smooth_base_;
+    rclcpp::Time current_time_, last_time_;
+    bool is_travelling_;      // True if the robot is moving, not just in a cycle
+    bool in_cycle_;           // True if the robot is in a gait cycle
+    int CYCLE_LENGTH;         // Number of steps in cycle
+    int NUMBER_OF_LEGS;       // Leg order in cycle of the leg
+    double LEG_LIFT_HEIGHT;   // Height of a leg cycle
+    std::string GAIT_STYLE;    // gait style Tripod or Ripple
+    int cycle_period_;        // Current period in cycle
+    int extra_gait_cycle_;    // Forcing some extra timed cycles
+    double period_distance;
+    double period_height;
+    double gait_factor;
+    std::vector<int> cycle_leg_number_; // Leg gait order (grouping) ['RR', 'RM', 'RF', 'LR', 'LM', 'LF']
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
 };
 
 #endif // GAIT_H_

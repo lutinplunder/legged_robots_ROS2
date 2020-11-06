@@ -29,6 +29,30 @@
 
 
 #include <servo_driver.hpp>
+//==============================================================================
+//  Global Parameter Client
+//==============================================================================
+
+ServoDriverParams::GetServoDriverParams() : Node("get_servo_driver_params") {
+    parameters_client =
+            std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
+
+    parameters_client->wait_for_service();
+    auto parameters_future = parameters_client->get_parameters(
+            {"TORQUE_ENABLE",
+             "PRESENT_POSITION_L",
+             "GOAL_POSITION_L",
+             "SERVOS",
+             "INTERPOLATION_LOOP_RATE",
+             "NUMBER_OF_LEGS",
+             "NUMBER_OF_LEG_SEGMENTS",
+             "NUMBER_OF_HEAD_SEGMENTS"
+            },
+            std::bind(&ServoDriverParams::callbackServoDriverParam, this, std::placeholders::_1));
+}
+
+void ServoDriverParams::callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+}
 
 //==============================================================================
 //  Constructor: Open USB2AX and get parameters
@@ -50,14 +74,17 @@ ServoDriver::ServoDriver( void )
 
     // Stating servos do not have torque applied
     servos_free_ = true;
-    rclcpp::param::get( "TORQUE_ENABLE", TORQUE_ENABLE );
-    rclcpp::param::get( "PRESENT_POSITION_L", PRESENT_POSITION_L );
-    rclcpp::param::get( "GOAL_POSITION_L", GOAL_POSITION_L );
-    rclcpp::param::get( "SERVOS", SERVOS );
-    rclcpp::param::get( "INTERPOLATION_LOOP_RATE", INTERPOLATION_LOOP_RATE );
-    rclcpp::param::get( "NUMBER_OF_LEGS", NUMBER_OF_LEGS );
-    rclcpp::param::get( "NUMBER_OF_LEG_SEGMENTS", NUMBER_OF_LEG_JOINTS );
-    rclcpp::param::get( "NUMBER_OF_HEAD_SEGMENTS", NUMBER_OF_HEAD_JOINTS );
+
+    ServoDriverParams servodriverparams;
+
+    TORQUE_ENABLE = servodriverparams.callbackServoDriverParam(get().at(0));
+    PRESENT_POSITION_L = servodriverparams.callbackServoDriverParam(get().at(1));
+    GOAL_POSITION_L = servodriverparams.callbackServoDriverParam(get().at(2));
+    SERVOS = servodriverparams.callbackServoDriverParam(get().at(3));
+    INTERPOLATION_LOOP_RATE = servodriverparams.callbackServoDriverParam(get().at(4));
+    NUMBER_OF_LEGS = servodriverparams.callbackServoDriverParam(get().at(5));
+    NUMBER_OF_LEG_JOINTS = servodriverparams.callbackServoDriverParam(get().at(6));
+    NUMBER_OF_HEAD_JOINTS = servodriverparams.callbackServoDriverParam(get().at(7));
 
     SERVO_COUNT = (NUMBER_OF_LEGS * NUMBER_OF_LEG_JOINTS) + NUMBER_OF_HEAD_JOINTS;
     OFFSET.resize( SERVO_COUNT );
@@ -74,13 +101,13 @@ ServoDriver::ServoDriver( void )
     for( int i = 0; i < SERVO_COUNT; i++ )
     {
         int j = i+1;
-        std::string(k)  = std::to_string(j);
-        rclcpp::param::get( "SERVOS/" + static_cast<std::string>( k ) + "/offset", OFFSET[i] );
-        rclcpp::param::get( "SERVOS/" + static_cast<std::string>( k ) + "/id", ID[i] );
-        rclcpp::param::get( "SERVOS/" + static_cast<std::string>( k ) + "/ticks", TICKS[i] );
-        rclcpp::param::get( "SERVOS/" + static_cast<std::string>( k ) + "/center", CENTER[i] );
-        rclcpp::param::get( "SERVOS/" + static_cast<std::string>( k ) + "/max_radians", MAX_RADIANS[i] );
-        rclcpp::param::get( "SERVOS/" + static_cast<std::string>( k ) + "/sign", servo_orientation_[i] );
+
+        OFFSET[i] = SERVOS[j].find("offset");
+        ID[i] = SERVOS[j].find("id");
+        TICKS[i] = SERVOS[j].find("ticks");
+        CENTER[i] = SERVOS[j].find("center");
+        MAX_RADIANS[i] = SERVOS[j].find("max_radians");
+        servo_orientation_[i] = SERVOS[j].find("sign");
         RAD_TO_SERVO_RESOLUTION[i] = TICKS[i] / MAX_RADIANS[i];
         // Fill vector containers with default value
         cur_pos_[i] = CENTER[i];

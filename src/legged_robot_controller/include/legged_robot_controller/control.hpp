@@ -57,6 +57,16 @@
 // the legged_robot.
 //==============================================================================
 
+class ControlParams : public rclcpp::Node {
+public:
+    GetControlParams();
+
+    void callbackControlParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
+
+private:
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
+};
+
 class Control {
 public:
     Control(void);
@@ -103,6 +113,7 @@ private:
     int NUMBER_OF_HEAD_JOINTS; // Number of head segments
     int NUMBER_OF_LEG_JOINTS;  // Number of leg segments
     int SERVO_COUNT;
+    std::vector<std::map<string, auto>> SERVOS;
     std::vector <std::string> servo_names_;
     std::vector<int> servo_orientation_;
     bool legged_robot_state_;      // Current loop state

@@ -46,6 +46,16 @@
 // Define the class(s) for Servo Drivers.
 //==============================================================================
 
+class ServoDriverParams : public rclcpp::Node {
+public:
+    GetServoDriverParams();
+
+    void callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
+
+private:
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
+};
+
 class ServoDriver {
 public:
     ServoDriver(void);
@@ -86,6 +96,7 @@ private:
     bool torque_off = true;
     bool writeParamSuccess = true;
     bool servos_free_;
+    std::vector<std::map<string, auto>> SERVOS;
     int SERVO_COUNT;
     int NUMBER_OF_LEGS;        // Number of legs
     int NUMBER_OF_HEAD_JOINTS; // Number of head segments

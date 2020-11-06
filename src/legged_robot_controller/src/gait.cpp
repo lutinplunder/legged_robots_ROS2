@@ -34,16 +34,38 @@
 static const double PI = atan(1.0) * 4.0;
 
 //==============================================================================
+//  Global Parameter Client
+//==============================================================================
+
+GaitParams::GetGaitParams() : Node("get_gait_params") {
+    parameters_client =
+            std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
+
+    parameters_client->wait_for_service();
+    auto parameters_future = parameters_client->get_parameters(
+            {"CYCLE_LENGTH",
+             "LEG_LIFT_HEIGHT",
+             "NUMBER_OF_LEGS",
+             "GAIT_STYLE"
+            },
+            std::bind(&IKParams::callbackIKParam, this, std::placeholders::_1));
+}
+
+void GaitParams::callbackGaitParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+}
+
+
+//==============================================================================
 //  Constructor: Initialize gait variables
 //==============================================================================
 
 Gait::Gait(void) {
-    parameters_client = std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
-    parameters_client->wait_for_service();
-    CYCLE_LENGTH = parameters_client->get_parameters("CYCLE_LENGTH")
-    LEG_LIFT_HEIGHT = parameters_client->get_parameters("LEG_LIFT_HEIGHT")
-    NUMBER_OF_LEGS = parameters_client->get_parameters("NUMBER_OF_LEGS")
-    GAIT_STYLE = parameters_client->get_parameters("GAIT_STYLE")
+    GaitParams gaitparams;
+
+    CYCLE_LENGTH = gaitparams.callbackGaitParam(get().at(0));
+    LEG_LIFT_HEIGHT = gaitparams.callbackGaitParam(get().at(1));
+    NUMBER_OF_LEGS = gaitparams.callbackGaitParam(get().at(2));
+    GAIT_STYLE = gaitparams.callbackGaitParam(get().at(3));
 
     cycle_period_ = 25;
     is_travelling_ = false;
