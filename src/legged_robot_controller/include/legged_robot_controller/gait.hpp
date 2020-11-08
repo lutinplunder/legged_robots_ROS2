@@ -43,7 +43,7 @@
 // Define structs and classes for gait system
 //=============================================================================
 
-class GaitParams : public rclcpp::Node {
+class GetGaitParams : public rclcpp::Node {
 public:
     GetGaitParams();
 
@@ -80,7 +80,7 @@ private:
     double period_height;
     double gait_factor;
     std::vector<int> cycle_leg_number_; // Leg gait order (grouping) ['RR', 'RM', 'RF', 'LR', 'LM', 'LF']
-    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
+
 };
 
 #endif // GAIT_H_

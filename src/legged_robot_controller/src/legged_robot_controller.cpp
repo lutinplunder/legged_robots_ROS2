@@ -39,17 +39,17 @@
 // Main
 //=============================================================================
 
-class LeggedRobotControllerNode : public rclcpp::Node
-{
-public:
-    LeggedRobotControllerNode() : Node("legged_robot_controller_node") {}
-private:
-};
+//class LeggedRobotControllerNode : public rclcpp::Node
+//{
+//public:
+//    LeggedRobotControllerNode() : Node("legged_robot_controller_node") {}
+//private:
+//};
 
 int main( int argc, char **argv )
 {
-    rclcpp::init(argc, argv);
-    auto node = std::make_shared<LeggedRobotControllerNode>;
+//    rclcpp::init(argc, argv);
+//    auto node = std::make_shared<LeggedRobotControllerNode>;
 
     // Create class objects
     Control control;
@@ -86,7 +86,7 @@ int main( int argc, char **argv )
         // Start button on controller has been pressed stand up
         if( control.getLeggedRobotActiveState() == true && control.getPrevLeggedRobotActiveState() == false )
         {
-            RCLCPP_INFO(rclcpp::get_logger(), "Robot is standing up.";
+            RCLCPP_INFO(rclcpp::get_logger(), "Robot is standing up.");
         while( control.body_.position.z < control.STANDING_BODY_HEIGHT )
             {
                 control.body_.position.z = control.body_.position.z + 0.001; // 1 mm increment
@@ -126,7 +126,7 @@ int main( int argc, char **argv )
         // Shutting down LeggedRobot so let us do a gradual sit down and turn off torque
         if( control.getLeggedRobotActiveState() == false && control.getPrevLeggedRobotActiveState() == true )
         {
-            RCLCPP_INFO("Robot sitting down.");
+            RCLCPP_INFO(rclcpp::get_logger(), "Robot sitting down.");
             while( control.body_.position.z > 0 )
             {
                 control.body_.position.z = control.body_.position.z - 0.001; // 1 mm increment
@@ -147,7 +147,7 @@ int main( int argc, char **argv )
             // Release torque
             std::chrono::duration<500, std::milli>.sleep();
             servoDriver.freeServos();
-            RCLCPP_INFO("Robot servos torque is now off.");
+            RCLCPP_INFO(rclcpp::get_logger(), "Robot servos torque is now off.");
 
             // Locomotion is now shut off
             control.setPrevLeggedRobotActiveState( false );

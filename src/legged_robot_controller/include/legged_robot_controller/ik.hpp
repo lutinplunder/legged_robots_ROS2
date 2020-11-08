@@ -49,9 +49,9 @@ struct Trig
     double cosine;
 };
 
-class IKParams : public rclcpp::Node {
+class GetIKParams : public rclcpp::Node {
 public:
-    GetIKParams();
+    GetIKParams(void);
 
     void callbackIKParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
 

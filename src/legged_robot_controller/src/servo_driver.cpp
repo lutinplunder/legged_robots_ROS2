@@ -33,7 +33,7 @@
 //  Global Parameter Client
 //==============================================================================
 
-ServoDriverParams::GetServoDriverParams() : Node("get_servo_driver_params") {
+GetServoDriverParams::GetServoDriverParams() : Node("get_servo_driver_params") {
     parameters_client =
             std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
 
@@ -48,10 +48,11 @@ ServoDriverParams::GetServoDriverParams() : Node("get_servo_driver_params") {
              "NUMBER_OF_LEG_SEGMENTS",
              "NUMBER_OF_HEAD_SEGMENTS"
             },
-            std::bind(&ServoDriverParams::callbackServoDriverParam, this, std::placeholders::_1));
+            std::bind(&GetServoDriverParams::callbackServoDriverParam, this, std::placeholders::_1));
 }
 
-void ServoDriverParams::callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+void GetServoDriverParams::callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+    auto param = future.get();
 }
 
 //==============================================================================
@@ -75,16 +76,16 @@ ServoDriver::ServoDriver( void )
     // Stating servos do not have torque applied
     servos_free_ = true;
 
-    ServoDriverParams servodriverparams;
+    GetServoDriverParams servodriverparams;
 
-    TORQUE_ENABLE = servodriverparams.callbackServoDriverParam(get().at(0));
-    PRESENT_POSITION_L = servodriverparams.callbackServoDriverParam(get().at(1));
-    GOAL_POSITION_L = servodriverparams.callbackServoDriverParam(get().at(2));
-    SERVOS = servodriverparams.callbackServoDriverParam(get().at(3));
-    INTERPOLATION_LOOP_RATE = servodriverparams.callbackServoDriverParam(get().at(4));
-    NUMBER_OF_LEGS = servodriverparams.callbackServoDriverParam(get().at(5));
-    NUMBER_OF_LEG_JOINTS = servodriverparams.callbackServoDriverParam(get().at(6));
-    NUMBER_OF_HEAD_JOINTS = servodriverparams.callbackServoDriverParam(get().at(7));
+    TORQUE_ENABLE = servodriverparams.callbackServoDriverParam(param).at(0);
+    PRESENT_POSITION_L = servodriverparams.callbackServoDriverParam(param).at(1);
+    GOAL_POSITION_L = servodriverparams.callbackServoDriverParam(param).at(2);
+    SERVOS = servodriverparams.callbackServoDriverParam(param).at(3);
+    INTERPOLATION_LOOP_RATE = servodriverparams.callbackServoDriverParam(param).at(4);
+    NUMBER_OF_LEGS = servodriverparams.callbackServoDriverParam(param).at(5);
+    NUMBER_OF_LEG_JOINTS = servodriverparams.callbackServoDriverParam(param).at(6);
+    NUMBER_OF_HEAD_JOINTS = servodriverparams.callbackServoDriverParam(param).at(7);
 
     SERVO_COUNT = (NUMBER_OF_LEGS * NUMBER_OF_LEG_JOINTS) + NUMBER_OF_HEAD_JOINTS;
     OFFSET.resize( SERVO_COUNT );
@@ -297,4 +298,12 @@ void ServoDriver::freeServos( void )
             RCLCPP_INFO(node->get_logger(), "Hexapod servos torque is now OFF.");
             servos_free_ = true;
         }
+}
+
+int main(int argc, char **argv)
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<GetServoDriverParams>();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
 }

@@ -33,7 +33,7 @@
 //  Global Parameter Client
 //==============================================================================
 
-IKParams::GetIKParams() : Node("get_ik_params") {
+GetIKParams::GetIKParams() : Node("get_ik_params") {
     parameters_client =
             std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
 
@@ -50,10 +50,11 @@ IKParams::GetIKParams() : Node("get_ik_params") {
              "NUMBER_OF_LEG_SEGMENTS",
              "ALGORITHM"
             },
-            std::bind(&IKParams::callbackIKParam, this, std::placeholders::_1));
+            std::bind(&GetIKParams::callbackIKParam, this, std::placeholders::_1));
 }
 
-void IKParams::callbackIKParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+void GetIKParams::callbackIKParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+    auto param = future.get();
 }
 
 
@@ -66,18 +67,18 @@ Ik::Ik(void) {
     // Define Physical Measurements in m <config file>
     //=============================================================================
 
-    IKParams ikparams;
+    GetIKParams ikparams;
 
-    COXA_TO_CENTER_X = ikparams.callbackIKParam(get().at(0));
-    COXA_TO_CENTER_Y = ikparams.callbackIKParam(get().at(1));
-    INIT_COXA_ANGLE = ikparams.callbackIKParam(get().at(2));
-    INIT_FOOT_POS_X = ikparams.callbackIKParam(get().at(3));
-    INIT_FOOT_POS_Y = ikparams.callbackIKParam(get().at(4));
-    INIT_FOOT_POS_Z = ikparams.callbackIKParam(get().at(5));
-    LENGTHS = ikparams.callbackIKParam(get().at(6));
-    NUMBER_OF_LEGS = ikparams.callbackIKParam(get().at(7));
-    NUMBER_OF_LEG_SEGMENTS = ikparams.callbackIKParam(get().at(8));
-    ALGORITHM = ikparams.callbackIKParam(get().at(9));
+    COXA_TO_CENTER_X = ikparams.callbackIKParam(param).at(0);
+    COXA_TO_CENTER_Y = ikparams.callbackIKParam(param).at(1);
+    INIT_COXA_ANGLE = ikparams.callbackIKParam(param).at(2);
+    INIT_FOOT_POS_X = ikparams.callbackIKParam(param).at(3);
+    INIT_FOOT_POS_Y = ikparams.callbackIKParam(param).at(4);
+    INIT_FOOT_POS_Z = ikparams.callbackIKParam(param).at(5);
+    LENGTHS = ikparams.callbackIKParam(param).at(6);
+    NUMBER_OF_LEGS = ikparams.callbackIKParam(param).at(7);
+    NUMBER_OF_LEG_SEGMENTS = ikparams.callbackIKParam(param).at(8);
+    ALGORITHM = ikparams.callbackIKParam(param).at(9);
 
 }
 
@@ -353,9 +354,17 @@ void Ik::calculateIK(const legged_robot_msgs::msg::FeetPositions &feet, const le
 
             // Resulting joint angles in radians.
             legs->leg[leg_index].coxa = atan2(feet_pos_x, feet_pos_y) + INIT_COXA_ANGLE[leg_index];
-            legs->leg[leg_index].femur = (PI / 2) - (theta + angle_b);
-            legs->leg[leg_index].tibia = (PI / 2) - angle_c;
+            legs->leg[leg_index].femur = (M_PI / 2) - (theta + angle_b);
+            legs->leg[leg_index].tibia = (M_PI / 2) - angle_c;
             legs->leg[leg_index].tarsus = legs->leg[leg_index].femur + legs->leg[leg_index].tibia;
         }
     }
+}
+
+int main(int argc, char **argv)
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<GetIKParams>();
+    rclcpp::spin(node);
+    rclcpp::shutdown();
 }

@@ -46,9 +46,9 @@
 // Define the class(s) for Servo Drivers.
 //==============================================================================
 
-class ServoDriverParams : public rclcpp::Node {
+class GetServoDriverParams : public rclcpp::Node {
 public:
-    GetServoDriverParams();
+    GetServoDriverParams(void);
 
     void callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
 

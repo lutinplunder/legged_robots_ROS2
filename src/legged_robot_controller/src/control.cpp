@@ -36,7 +36,7 @@ static const double PI = atan(1.0)*4.0;
 //  Global Parameter Client
 //==============================================================================
 
-ControlParams::GetControlParams() : Node("get_control_params") {
+GetControlParams::GetControlParams() : Node("get_control_params") {
     parameters_client =
             std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
 
@@ -59,10 +59,36 @@ ControlParams::GetControlParams() : Node("get_control_params") {
              "MASTER_LOOP_RATE",
              "VELOCITY_DIVISION"
             },
-            std::bind(&ControlParams::callbackControlParam, this, std::placeholders::_1));
+            std::bind(&GetControlParams::callbackControlParam, this, std::placeholders::_1));
 }
 
-void ControlParams::callbackControlParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+void GetControlParams::callbackControlParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+    auto param = future.get();
+}
+
+//==============================================================================
+//  Topics we are publishing
+//==============================================================================
+
+ControlPublisher::ControlPublisher() : Node("control_publisher") {
+    sounds_pub_ = this->create_publisher<legged_robot_msgs::msg::Sounds>("/sounds", 10);
+    joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
+    odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/odometry/calculated", 50);
+    twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/twist", 50);
+}
+
+//==============================================================================
+//  Topics we are subscribing
+//==============================================================================
+
+ControlSubscriber::ControlSubscriber() : Node("control_subscriber") {
+    cmd_vel_sub_ = this->create_subscriber<geometry_msgs::msg::Twist>( "/cmd_vel", 1, &Control::cmd_velCallback, this );
+    body_scalar_sub_ = this->create_subscriber<geometry_msgs::msg::AccelStamped>( "/body_scalar", 1, &Control::bodyCallback, this );
+    head_scalar_sub_ = this->create_subscriber<geometry_msgs::msg::AccelStamped>( "/head_scalar", 1, &Control::headCallback, this );
+    state_sub_ = this->create_subscriber<std_msgs::msg::Bool>( "/state", 1, &Control::stateCallback, this );
+    imu_override_sub_ = this->create_subscriber<std_msgs::msg::Bool>( "/imu/imu_override", 1, &Control::imuOverrideCallback, this );
+    imu_sub_ = this->create_subscriber<sensor_msgs::msg::Imu>( "/imu/data", 1, &Control::imuCallback, this );
+
 }
 
 //==============================================================================
@@ -72,24 +98,24 @@ void ControlParams::callbackControlParam(std::shared_future <std::vector<rclcpp:
 Control::Control( void )
 {
 
-    ControlParams controlparams;
+    GetControlParams controlparams;
 
-    NUMBER_OF_LEGS = controlparams.callbackControlParam(get().at(0));
-    NUMBER_OF_LEG_JOINTS = controlparams.callbackControlParam(get().at(1));
-    NUMBER_OF_HEAD_JOINTS = controlparams.callbackControlParam(get().at(2));
-    BODY_MAX_ROLL = controlparams.callbackControlParam(get().at(3));
-    BODY_MAX_PITCH = controlparams.callbackControlParam(get().at(4));
-    BODY_MAX_YAW = controlparams.callbackControlParam(get().at(5));
-    HEAD_MAX_YAW = controlparams.callbackControlParam(get().at(6));
-    HEAD_MAX_PITCH = controlparams.callbackControlParam(get().at(7));
-    STANDING_BODY_HEIGHT = controlparams.callbackControlParam(get().at(8));
-    SERVOS = controlparams.callbackControlParam(get().at(9));
-    MAX_BODY_ROLL_COMP = controlparams.callbackControlParam(get().at(10));
-    MAX_BODY_PITCH_COMP = controlparams.callbackControlParam(get().at(11));
-    COMPENSATE_INCREMENT = controlparams.callbackControlParam(get().at(12));
-    COMPENSATE_TO_WITHIN = controlparams.callbackControlParam(get().at(13));
-    MASTER_LOOP_RATE = controlparams.callbackControlParam(get().at(14));
-    VELOCITY_DIVISION = controlparams.callbackControlParam(get().at(15));
+    NUMBER_OF_LEGS = controlparams.callbackControlParam(param).at(0);
+    NUMBER_OF_LEG_JOINTS = controlparams.callbackControlParam(param).at(1);
+    NUMBER_OF_HEAD_JOINTS = controlparams.callbackControlParam(param).at(2);
+    BODY_MAX_ROLL = controlparams.callbackControlParam(param).at(3);
+    BODY_MAX_PITCH = controlparams.callbackControlParam(param).at(4);
+    BODY_MAX_YAW = controlparams.callbackControlParam(param).at(5);
+    HEAD_MAX_YAW = controlparams.callbackControlParam(param).at(6);
+    HEAD_MAX_PITCH = controlparams.callbackControlParam(param).at(7);
+    STANDING_BODY_HEIGHT = controlparams.callbackControlParam(param).at(8);
+    SERVOS = controlparams.callbackControlParam(param).at(9);
+    MAX_BODY_ROLL_COMP = controlparams.callbackControlParam(param).at(10);
+    MAX_BODY_PITCH_COMP = controlparams.callbackControlParam(param).at(11);
+    COMPENSATE_INCREMENT = controlparams.callbackControlParam(param).at(12);
+    COMPENSATE_TO_WITHIN = controlparams.callbackControlParam(param).at(13);
+    MASTER_LOOP_RATE = controlparams.callbackControlParam(param).at(14);
+    VELOCITY_DIVISION = controlparams.callbackControlParam(param).at(15);
 
 
 
@@ -121,20 +147,6 @@ Control::Control( void )
     imu_yaw_lowpass_ = 0.0;
     imu_roll_init_ = 0.0;
     imu_pitch_init_ = 0.0;
-
-    // Topics we are subscribing
-    cmd_vel_sub_ = nh_.subscribe<geometry_msgs::Twist>( "/cmd_vel", 1, &Control::cmd_velCallback, this );
-    body_scalar_sub_ = nh_.subscribe<geometry_msgs::AccelStamped>( "/body_scalar", 1, &Control::bodyCallback, this );
-    head_scalar_sub_ = nh_.subscribe<geometry_msgs::AccelStamped>( "/head_scalar", 1, &Control::headCallback, this );
-    state_sub_ = nh_.subscribe<std_msgs::Bool>( "/state", 1, &Control::stateCallback, this );
-    imu_override_sub_ = nh_.subscribe<std_msgs::Bool>( "/imu/imu_override", 1, &Control::imuOverrideCallback, this );
-    imu_sub_ = nh_.subscribe<sensor_msgs::Imu>( "/imu/data", 1, &Control::imuCallback, this );
-
-    // Topics we are publishing
-    sounds_pub_ = nh_.advertise<legged_robot_msgs::Sounds>( "/sounds", 10 );
-    joint_state_pub_ = nh_.advertise<sensor_msgs::JointState>( "/joint_states", 10 );
-    odom_pub_ = nh_.advertise<nav_msgs::Odometry>( "/odometry/calculated", 50 );
-    twist_pub_ = nh_.advertise<geometry_msgs::TwistWithCovarianceStamped>( "/twist", 50 );
 
     // Send service request to the imu to re-calibrate
     imu_calibrate_ = nh_.serviceClient<std_srvs::Empty>("/imu/calibrate");
@@ -229,7 +241,8 @@ void Control::publishOdometry( const geometry_msgs::msg::Twist &gait_vel )
     odom.twist.twist.angular.z = vth;
     odom.twist.covariance = odom.pose.covariance; // needed?
 
-    odom_pub_.publish( odom );
+    ControlPublisher controlpublisher;
+    controlpublisher.odom_pub_->publish( odom );
     last_time_odometry_ = current_time_odometry_;
 }
 
@@ -253,7 +266,8 @@ void Control::publishTwist( const geometry_msgs::msg::Twist &gait_vel )
     twistStamped.twist.covariance[28] = 1000000000000.0; // rot y
     twistStamped.twist.covariance[35] = 0.001; // rot z
 
-    twist_pub_.publish( twistStamped );
+    ControlPublisher controlpublisher;
+    controlpublisher.twist_pub_->publish( twistStamped );
 }
 
 //==============================================================================
@@ -299,7 +313,8 @@ void Control::publishJointStates( const legged_robot_msgs::msg::LegsJoints &legs
         default:
             break;
     }
-    joint_state_pub_.publish( *joint_state );
+    ControlPublisher controlpublisher;
+    controlpublisher.joint_state_pub_->publish( *joint_state );
 }
 
 //==============================================================================
@@ -357,6 +372,7 @@ void Control::headCallback( const geometry_msgs::msg::AccelStampedConstPtr &head
 
 void Control::stateCallback( const std_msgs::msg::BoolConstPtr &state_msg )
 {
+    ControlPublisher controlpublisher;
     if(state_msg->data == true )
     {
         if( getLeggedRobotActiveState() == false )
@@ -370,7 +386,7 @@ void Control::stateCallback( const std_msgs::msg::BoolConstPtr &state_msg )
             body_.orientation.roll = 0.0;
             setLeggedRobotActiveState( true );
             sounds_.stand = true;
-            sounds_pub_.publish( sounds_ );
+            controlpublisher.sounds_pub_->publish( sounds_ );
             sounds_.stand = false;
         }
     }
@@ -387,7 +403,7 @@ void Control::stateCallback( const std_msgs::msg::BoolConstPtr &state_msg )
             body_.orientation.roll = 0.0;
             setLeggedRobotActiveState( false );
             sounds_.shut_down = true;
-            sounds_pub_.publish( sounds_ );
+            controlpublisher.sounds_pub_->publish( sounds_ );
             sounds_.shut_down = false;
         }
     }
@@ -408,6 +424,7 @@ void Control::imuOverrideCallback( const std_msgs::msg::BoolConstPtr &imu_overri
 
 void Control::imuCallback( const sensor_msgs::msg::ImuConstPtr &imu_msg )
 {
+    ControlPublisher controlpublisher;
     if( imu_override_.data == false )
     {
         const geometry_msgs::msg::Vector3 &lin_acc = imu_msg->linear_acceleration;
@@ -435,7 +452,7 @@ void Control::imuCallback( const sensor_msgs::msg::ImuConstPtr &imu_msg )
         if( ( std::abs( imu_roll_delta ) > MAX_BODY_ROLL_COMP ) || ( std::abs( imu_pitch_delta ) > MAX_BODY_PITCH_COMP ) )
         {
             sounds_.auto_level = true;
-            sounds_pub_.publish( sounds_ );
+            controlpublisher.sounds_pub_->publish( sounds_ );
             sounds_.auto_level = false;
         }
 
@@ -490,3 +507,12 @@ void Control::partitionCmd_vel( geometry_msgs::msg::Twist *cmd_vel )
     cmd_vel->angular.z = delta_th;
 }
 
+int main(int argc, char * argv[])
+{
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<GetControlParams>())
+    rclcpp::spin(std::make_shared<ControlPublisher>());
+    rclcpp::spin(std::make_shared<ControlSubscriber>());
+    rclcpp::shutdown();
+    return 0;
+}
