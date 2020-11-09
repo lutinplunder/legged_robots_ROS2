@@ -57,30 +57,12 @@
 // the legged_robot.
 //==============================================================================
 
-class GetControlParams : public rclcpp::Node {
-public:
-    GetControlParams(void);
-
-    void callbackControlParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
-
-private:
-    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
-};
-
-class ControlPublisher : public rclcpp::Node {
-public:
-    ControlPublisher();
-};
-
-class ControlSubscriber : public rclcpp::Node {
-public:
-    ControlSubscriber();
-};
-
-class Control {
+class Control : public rclcpp::Node {
 public:
 
-    Control(void);
+    Control();
+
+    void callbackControlParam();
 
     void setLeggedRobotActiveState(bool state);
 
@@ -110,6 +92,7 @@ public:
     geometry_msgs::msg::Twist cmd_vel_;
 
 private:
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
     legged_robot_msgs::msg::Sounds sounds_; // Sound bool array
     std_msgs::msg::Bool imu_override_; // Override body levelling for body manipulation
     bool imu_init_stored_; // Auto-levelling

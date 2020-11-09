@@ -30,13 +30,13 @@
 
 #include <control.hpp>
 
-static const double PI = atan(1.0)*4.0;
+static const double PI = atan(1.0) * 4.0;
 
 //==============================================================================
-//  Global Parameter Client
+// Constructor
 //==============================================================================
 
-GetControlParams::GetControlParams() : Node("get_control_params") {
+Control::Control() : Node("control") {
     parameters_client =
             std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
 
@@ -59,65 +59,27 @@ GetControlParams::GetControlParams() : Node("get_control_params") {
              "MASTER_LOOP_RATE",
              "VELOCITY_DIVISION"
             },
-            std::bind(&GetControlParams::callbackControlParam, this, std::placeholders::_1));
-}
-
-void GetControlParams::callbackControlParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
-    auto param = future.get();
-}
+            std::bind(&Control::callbackControlParam, this, std::placeholders::_1));
 
 //==============================================================================
 //  Topics we are publishing
 //==============================================================================
 
-ControlPublisher::ControlPublisher() : Node("control_publisher") {
     sounds_pub_ = this->create_publisher<legged_robot_msgs::msg::Sounds>("/sounds", 10);
     joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
     odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/odometry/calculated", 50);
     twist_pub_ = this->create_publisher<geometry_msgs::msg::TwistWithCovarianceStamped>("/twist", 50);
-}
 
 //==============================================================================
 //  Topics we are subscribing
 //==============================================================================
 
-ControlSubscriber::ControlSubscriber() : Node("control_subscriber") {
-    cmd_vel_sub_ = this->create_subscriber<geometry_msgs::msg::Twist>( "/cmd_vel", 1, &Control::cmd_velCallback, this );
-    body_scalar_sub_ = this->create_subscriber<geometry_msgs::msg::AccelStamped>( "/body_scalar", 1, &Control::bodyCallback, this );
-    head_scalar_sub_ = this->create_subscriber<geometry_msgs::msg::AccelStamped>( "/head_scalar", 1, &Control::headCallback, this );
-    state_sub_ = this->create_subscriber<std_msgs::msg::Bool>( "/state", 1, &Control::stateCallback, this );
-    imu_override_sub_ = this->create_subscriber<std_msgs::msg::Bool>( "/imu/imu_override", 1, &Control::imuOverrideCallback, this );
-    imu_sub_ = this->create_subscriber<sensor_msgs::msg::Imu>( "/imu/data", 1, &Control::imuCallback, this );
-
-}
-
-//==============================================================================
-// Constructor
-//==============================================================================
-
-Control::Control( void )
-{
-
-    GetControlParams controlparams;
-
-    NUMBER_OF_LEGS = controlparams.callbackControlParam(param).at(0);
-    NUMBER_OF_LEG_JOINTS = controlparams.callbackControlParam(param).at(1);
-    NUMBER_OF_HEAD_JOINTS = controlparams.callbackControlParam(param).at(2);
-    BODY_MAX_ROLL = controlparams.callbackControlParam(param).at(3);
-    BODY_MAX_PITCH = controlparams.callbackControlParam(param).at(4);
-    BODY_MAX_YAW = controlparams.callbackControlParam(param).at(5);
-    HEAD_MAX_YAW = controlparams.callbackControlParam(param).at(6);
-    HEAD_MAX_PITCH = controlparams.callbackControlParam(param).at(7);
-    STANDING_BODY_HEIGHT = controlparams.callbackControlParam(param).at(8);
-    SERVOS = controlparams.callbackControlParam(param).at(9);
-    MAX_BODY_ROLL_COMP = controlparams.callbackControlParam(param).at(10);
-    MAX_BODY_PITCH_COMP = controlparams.callbackControlParam(param).at(11);
-    COMPENSATE_INCREMENT = controlparams.callbackControlParam(param).at(12);
-    COMPENSATE_TO_WITHIN = controlparams.callbackControlParam(param).at(13);
-    MASTER_LOOP_RATE = controlparams.callbackControlParam(param).at(14);
-    VELOCITY_DIVISION = controlparams.callbackControlParam(param).at(15);
-
-
+    cmd_vel_sub_ = this->create_subscriber<geometry_msgs::msg::Twist>("/cmd_vel", 1, &Control::cmd_velCallback, this);
+    body_scalar_sub_ = this->create_subscriber<geometry_msgs::msg::AccelStamped>("/body_scalar", 1, &Control::bodyCallback, this);
+    head_scalar_sub_ = this->create_subscriber<geometry_msgs::msg::AccelStamped>("/head_scalar", 1, &Control::headCallback, this);
+    state_sub_ = this->create_subscriber<std_msgs::msg::Bool>("/state", 1, &Control::stateCallback, this);
+    imu_override_sub_ = this->create_subscriber<std_msgs::msg::Bool>("/imu/imu_override", 1, &Control::imuOverrideCallback, this);
+    imu_sub_ = this->create_subscriber<sensor_msgs::msg::Imu>("/imu/data", 1, &Control::imuCallback, this);
 
     current_time_odometry_ = rclcpp::Time::now();
     last_time_odometry_ = rclcpp::Time::now();
@@ -125,18 +87,17 @@ Control::Control( void )
     last_time_cmd_vel_ = rclcpp::Time::now();
     // Find out how many servos/joints we have
     SERVO_COUNT = (NUMBER_OF_LEGS * NUMBER_OF_LEG_JOINTS) + NUMBER_OF_HEAD_JOINTS
-    joint_state_.name.resize( SERVO_COUNT );
-    joint_state_.position.resize( SERVO_COUNT );
-    servo_names_.resize( SERVO_COUNT );
-    servo_orientation_.resize( SERVO_COUNT );
-    for( int i = 0; i < SERVO_COUNT; i++ )
-    {
-        int j = i+1;
+    joint_state_.name.resize(SERVO_COUNT);
+    joint_state_.position.resize(SERVO_COUNT);
+    servo_names_.resize(SERVO_COUNT);
+    servo_orientation_.resize(SERVO_COUNT);
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        int j = i + 1;
         servo_names_[i] = SERVOS[j].find("name");
         servo_orientation_[i] = SERVOS[j].find("sign");
 
-    //    rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/name"), servo_names_[i] );
-    //    rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/sign"), servo_orientation_[i] );
+        //    rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/name"), servo_names_[i] );
+        //    rclcpp::param::get( ("/SERVOS/" + static_cast<std::string>( k ) + "/sign"), servo_orientation_[i] );
     }
     prev_legged_robot_state_ = false;
     legged_robot_state_ = false;
@@ -150,43 +111,58 @@ Control::Control( void )
 
     // Send service request to the imu to re-calibrate
     imu_calibrate_ = nh_.serviceClient<std_srvs::Empty>("/imu/calibrate");
-    imu_calibrate_.call( calibrate_ );
+    imu_calibrate_.call(calibrate_);
 }
 
+void Control::callbackControlParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+    auto param = future.get();
+
+    NUMBER_OF_LEGS = param.at(0);
+    NUMBER_OF_LEG_JOINTS = param.at(1);
+    NUMBER_OF_HEAD_JOINTS = param.at(2);
+    BODY_MAX_ROLL = param.at(3);
+    BODY_MAX_PITCH = param.at(4);
+    BODY_MAX_YAW = param.at(5);
+    HEAD_MAX_YAW = param.at(6);
+    HEAD_MAX_PITCH = param.at(7);
+    STANDING_BODY_HEIGHT = param.at(8);
+    SERVOS = param.at(9);
+    MAX_BODY_ROLL_COMP = param.at(10);
+    MAX_BODY_PITCH_COMP = param.at(11);
+    COMPENSATE_INCREMENT = param.at(12);
+    COMPENSATE_TO_WITHIN = param.at(13);
+    MASTER_LOOP_RATE = param.at(14);
+    VELOCITY_DIVISION = param.at(15);
+}
 //==============================================================================
 // Getter and Setters
 //==============================================================================
 
-void Control::setLeggedRobotActiveState( bool state )
-{
+void Control::setLeggedRobotActiveState(bool state) {
     legged_robot_state_ = state;
 }
 
-bool Control::getLeggedRobotActiveState( void )
-{
+bool Control::getLeggedRobotActiveState(void) {
     return legged_robot_state_;
 }
 
-void Control::setPrevLeggedRobotActiveState( bool state )
-{
+void Control::setPrevLeggedRobotActiveState(bool state) {
     prev_legged_robot_state_ = state;
 }
 
-bool Control::getPrevLeggedRobotActiveState( void )
-{
+bool Control::getPrevLeggedRobotActiveState(void) {
     return prev_legged_robot_state_;
 }
 
 //==============================================================================
 // Odometry Publisher
 //==============================================================================
-void Control::publishOdometry( const geometry_msgs::msg::Twist &gait_vel )
-{
+void Control::publishOdometry(const geometry_msgs::msg::Twist &gait_vel) {
     // compute odometry in a typical way given the velocities of the robot
 
     // calculate time elapsed
     current_time_odometry_ = rclcpp::Time::now();
-    double dt = ( current_time_odometry_ - last_time_odometry_ ).toSec();
+    double dt = (current_time_odometry_ - last_time_odometry_).toSec();
 
     double vth = gait_vel.angular.z;
     double delta_th = vth * dt;
@@ -194,13 +170,13 @@ void Control::publishOdometry( const geometry_msgs::msg::Twist &gait_vel )
 
     double vx = gait_vel.linear.x;
     double vy = gait_vel.linear.y;
-    double delta_x = ( vx * cos( pose_th_ ) - vy * sin( pose_th_ ) ) * dt;
-    double delta_y = ( vx * sin( pose_th_ ) + vy * cos( pose_th_ ) ) * dt;
+    double delta_x = (vx * cos(pose_th_) - vy * sin(pose_th_)) * dt;
+    double delta_y = (vx * sin(pose_th_) + vy * cos(pose_th_)) * dt;
     pose_x_ += delta_x;
     pose_y_ += delta_y;
 
     // since all odometry is 6DOF we'll need a quaternion created from yaw
-    geometry_msgs::msg::Quaternion odom_quat = tf::createQuaternionMsgFromYaw( pose_th_ );
+    geometry_msgs::msg::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(pose_th_);
 
     // first, we'll publish the transform over tf
     geometry_msgs::msg::TransformStamped odom_trans;
@@ -241,16 +217,15 @@ void Control::publishOdometry( const geometry_msgs::msg::Twist &gait_vel )
     odom.twist.twist.angular.z = vth;
     odom.twist.covariance = odom.pose.covariance; // needed?
 
-    ControlPublisher controlpublisher;
-    controlpublisher.odom_pub_->publish( odom );
+    Control control;
+    control.odom_pub_->publish(odom);
     last_time_odometry_ = current_time_odometry_;
 }
 
 //==============================================================================
 // Twist Publisher
 //==============================================================================
-void Control::publishTwist( const geometry_msgs::msg::Twist &gait_vel )
-{
+void Control::publishTwist(const geometry_msgs::msg::Twist &gait_vel) {
     geometry_msgs::msg::TwistWithCovarianceStamped twistStamped;
     twistStamped.header.stamp = rclcpp::Time::now();
     twistStamped.header.frame_id = "odom";
@@ -266,19 +241,19 @@ void Control::publishTwist( const geometry_msgs::msg::Twist &gait_vel )
     twistStamped.twist.covariance[28] = 1000000000000.0; // rot y
     twistStamped.twist.covariance[35] = 0.001; // rot z
 
-    ControlPublisher controlpublisher;
-    controlpublisher.twist_pub_->publish( twistStamped );
+    Control control;
+    control.twist_pub_->publish(twistStamped);
 }
 
 //==============================================================================
 // Joint State Publisher
 //==============================================================================
-void Control::publishJointStates( const legged_robot_msgs::msg::LegsJoints &legs, const legged_robot_msgs::msg::RPY &head, sensor_msgs::msg::JointState *joint_state )
-{
+void
+Control::publishJointStates(const legged_robot_msgs::msg::LegsJoints &legs, const legged_robot_msgs::msg::RPY &head,
+                            sensor_msgs::msg::JointState *joint_state) {
     joint_state->header.stamp = rclcpp::Time::now();
     int i = 0;
-    for( int leg_index = 0; leg_index < NUMBER_OF_LEGS; leg_index++ )
-    {
+    for (int leg_index = 0; leg_index < NUMBER_OF_LEGS; leg_index++) {
         joint_state->name[i] = servo_names_[i];
         joint_state->position[i] = servo_orientation_[i] * legs.leg[leg_index].coxa;
         i++;
@@ -288,15 +263,13 @@ void Control::publishJointStates( const legged_robot_msgs::msg::LegsJoints &legs
         joint_state->name[i] = servo_names_[i];
         joint_state->position[i] = servo_orientation_[i] * legs.leg[leg_index].tibia;
         i++;
-        if ( NUMBER_OF_LEG_JOINTS == 4 )
-        {
+        if (NUMBER_OF_LEG_JOINTS == 4) {
             joint_state->name[i] = servo_names_[i];
             joint_state->position[i] = servo_orientation_[i] * legs.leg[leg_index].tarsus;
             i++;
         }
     }
-    switch( NUMBER_OF_HEAD_JOINTS )
-    {
+    switch (NUMBER_OF_HEAD_JOINTS) {
         case 1:
             joint_state->name[i] = servo_names_[i];
             joint_state->position[i] = head_.yaw;
@@ -313,8 +286,8 @@ void Control::publishJointStates( const legged_robot_msgs::msg::LegsJoints &legs
         default:
             break;
     }
-    ControlPublisher controlpublisher;
-    controlpublisher.joint_state_pub_->publish( *joint_state );
+    Control control;
+    control.joint_state_pub_->publish(*joint_state);
 }
 
 //==============================================================================
@@ -324,8 +297,7 @@ void Control::publishJointStates( const legged_robot_msgs::msg::LegsJoints &legs
 // cmd_vel callback
 //==============================================================================
 
-void Control::cmd_velCallback( const geometry_msgs::msg::TwistConstPtr &cmd_vel_msg )
-{
+void Control::cmd_velCallback(const geometry_msgs::msg::TwistConstPtr &cmd_vel_msg) {
     cmd_vel_incoming_.linear.x = cmd_vel_msg->linear.x;
     cmd_vel_incoming_.linear.y = cmd_vel_msg->linear.y;
     cmd_vel_incoming_.angular.z = cmd_vel_msg->angular.z;
@@ -335,18 +307,19 @@ void Control::cmd_velCallback( const geometry_msgs::msg::TwistConstPtr &cmd_vel_
 // Override IMU and manipulate body orientation callback
 //==============================================================================
 
-void Control::bodyCallback( const geometry_msgs::msg::AccelStampedConstPtr &body_scalar_msg )
-{
+void Control::bodyCallback(const geometry_msgs::msg::AccelStampedConstPtr &body_scalar_msg) {
     rclcpp::Time current_time = rclcpp::Time::now();
     double time_delta = current_time.toSec() - body_scalar_msg->header.stamp.toSec();
-    if ( time_delta < 1.0 ) // Don't move if timestamp is stale over a second
+    if (time_delta < 1.0) // Don't move if timestamp is stale over a second
     {
-        if( imu_override_.data == true )
-        {
+        if (imu_override_.data == true) {
             // To prevent violent motion changes the values are ran through a low pass filter
-            body_.orientation.roll = ( body_scalar_msg->accel.angular.x * BODY_MAX_ROLL )* 0.01 + ( body_.orientation.roll * ( 1.0 - 0.01 ) );
-            body_.orientation.pitch = ( body_scalar_msg->accel.angular.y * BODY_MAX_PITCH ) * 0.01 + ( body_.orientation.pitch * ( 1.0 - 0.01 ) );
-            body_.orientation.yaw = ( body_scalar_msg->accel.angular.z * BODY_MAX_YAW ) * 0.01 + ( body_.orientation.yaw * ( 1.0 - 0.01 ) );
+            body_.orientation.roll =
+                    (body_scalar_msg->accel.angular.x * BODY_MAX_ROLL) * 0.01 + (body_.orientation.roll * (1.0 - 0.01));
+            body_.orientation.pitch = (body_scalar_msg->accel.angular.y * BODY_MAX_PITCH) * 0.01 +
+                                      (body_.orientation.pitch * (1.0 - 0.01));
+            body_.orientation.yaw =
+                    (body_scalar_msg->accel.angular.z * BODY_MAX_YAW) * 0.01 + (body_.orientation.yaw * (1.0 - 0.01));
         }
     }
 }
@@ -355,11 +328,10 @@ void Control::bodyCallback( const geometry_msgs::msg::AccelStampedConstPtr &body
 // Pan head callback
 //==============================================================================
 
-void Control::headCallback( const geometry_msgs::msg::AccelStampedConstPtr &head_scalar_msg )
-{
+void Control::headCallback(const geometry_msgs::msg::AccelStampedConstPtr &head_scalar_msg) {
     rclcpp::Time current_time = rclcpp::Time::now();
     double time_delta = current_time.toSec() - head_scalar_msg->header.stamp.toSec();
-    if ( time_delta < 1.0 ) // Don't move if timestamp is stale over a second
+    if (time_delta < 1.0) // Don't move if timestamp is stale over a second
     {
         head_.yaw = head_scalar_msg->accel.angular.z * HEAD_MAX_YAW;
         head_.pitch = head_scalar_msg->accel.angular.y * HEAD_MAX_PITCH;
@@ -370,13 +342,10 @@ void Control::headCallback( const geometry_msgs::msg::AccelStampedConstPtr &head
 // Active state callback - currently simple on/off - stand/sit
 //==============================================================================
 
-void Control::stateCallback( const std_msgs::msg::BoolConstPtr &state_msg )
-{
-    ControlPublisher controlpublisher;
-    if(state_msg->data == true )
-    {
-        if( getLeggedRobotActiveState() == false )
-        {
+void Control::stateCallback(const std_msgs::msg::BoolConstPtr &state_msg) {
+    Control control;
+    if (state_msg->data == true) {
+        if (getLeggedRobotActiveState() == false) {
             // Activating legged_robot
             body_.position.y = 0.0;
             body_.position.z = 0.0;
@@ -384,26 +353,24 @@ void Control::stateCallback( const std_msgs::msg::BoolConstPtr &state_msg )
             body_.orientation.pitch = 0.0;
             body_.orientation.yaw = 0.0;
             body_.orientation.roll = 0.0;
-            setLeggedRobotActiveState( true );
+            setLeggedRobotActiveState(true);
             sounds_.stand = true;
-            controlpublisher.sounds_pub_->publish( sounds_ );
+            control.sounds_pub_->publish(sounds_);
             sounds_.stand = false;
         }
     }
 
-    if( state_msg->data == false )
-    {
-        if( getLeggedRobotActiveState() == true )
-        {
+    if (state_msg->data == false) {
+        if (getLeggedRobotActiveState() == true) {
             // Sit down legged_robot
             body_.position.y = 0.0;
             body_.position.x = 0.0;
             body_.orientation.pitch = 0.0;
             body_.orientation.yaw = 0.0;
             body_.orientation.roll = 0.0;
-            setLeggedRobotActiveState( false );
+            setLeggedRobotActiveState(false);
             sounds_.shut_down = true;
-            controlpublisher.sounds_pub_->publish( sounds_ );
+            control.sounds_pub_->publish(sounds_);
             sounds_.shut_down = false;
         }
     }
@@ -413,8 +380,7 @@ void Control::stateCallback( const std_msgs::msg::BoolConstPtr &state_msg )
 // IMU override callback
 //==============================================================================
 
-void Control::imuOverrideCallback( const std_msgs::msg::BoolConstPtr &imu_override_msg )
-{
+void Control::imuOverrideCallback(const std_msgs::msg::BoolConstPtr &imu_override_msg) {
     imu_override_.data = imu_override_msg->data;
 }
 
@@ -422,68 +388,57 @@ void Control::imuOverrideCallback( const std_msgs::msg::BoolConstPtr &imu_overri
 // IMU callback to auto-level body if on non level ground
 //==============================================================================
 
-void Control::imuCallback( const sensor_msgs::msg::ImuConstPtr &imu_msg )
-{
-    ControlPublisher controlpublisher;
-    if( imu_override_.data == false )
-    {
+void Control::imuCallback(const sensor_msgs::msg::ImuConstPtr &imu_msg) {
+    Control control;
+    if (imu_override_.data == false) {
         const geometry_msgs::msg::Vector3 &lin_acc = imu_msg->linear_acceleration;
 
-        if( imu_init_stored_ == false )
-        {
-            imu_roll_init_ = atan2( lin_acc.x, sqrt( lin_acc.y * lin_acc.y + lin_acc.z * lin_acc.z ) );
-            imu_pitch_init_ = -atan2( lin_acc.y, lin_acc.z );
-            imu_pitch_init_ = ( imu_pitch_init_ >= 0.0 ) ? ( PI - imu_pitch_init_ ) : ( -imu_pitch_init_ - PI );
+        if (imu_init_stored_ == false) {
+            imu_roll_init_ = atan2(lin_acc.x, sqrt(lin_acc.y * lin_acc.y + lin_acc.z * lin_acc.z));
+            imu_pitch_init_ = -atan2(lin_acc.y, lin_acc.z);
+            imu_pitch_init_ = (imu_pitch_init_ >= 0.0) ? (PI - imu_pitch_init_) : (-imu_pitch_init_ - PI);
             imu_init_stored_ = true;
         }
 
         // low-pass filter to smooth out noise
-        imu_roll_lowpass_ = lin_acc.x * 0.01 + ( imu_roll_lowpass_ * ( 1.0 - 0.01 ) );
-        imu_pitch_lowpass_ = lin_acc.y * 0.01 + ( imu_pitch_lowpass_ * ( 1.0 - 0.01 ) );
-        imu_yaw_lowpass_ = lin_acc.z * 0.01 + ( imu_yaw_lowpass_ * ( 1.0 - 0.01 ) );
+        imu_roll_lowpass_ = lin_acc.x * 0.01 + (imu_roll_lowpass_ * (1.0 - 0.01));
+        imu_pitch_lowpass_ = lin_acc.y * 0.01 + (imu_pitch_lowpass_ * (1.0 - 0.01));
+        imu_yaw_lowpass_ = lin_acc.z * 0.01 + (imu_yaw_lowpass_ * (1.0 - 0.01));
 
-        double imu_roll = atan2( imu_roll_lowpass_, sqrt( imu_pitch_lowpass_ * imu_pitch_lowpass_ + imu_yaw_lowpass_ * imu_yaw_lowpass_ ) );
-        double imu_pitch = -atan2( imu_pitch_lowpass_, imu_yaw_lowpass_ );
-        imu_pitch = ( imu_pitch >= 0.0 ) ? ( PI - imu_pitch ) : ( -imu_pitch - PI );
+        double imu_roll = atan2(imu_roll_lowpass_,
+                                sqrt(imu_pitch_lowpass_ * imu_pitch_lowpass_ + imu_yaw_lowpass_ * imu_yaw_lowpass_));
+        double imu_pitch = -atan2(imu_pitch_lowpass_, imu_yaw_lowpass_);
+        imu_pitch = (imu_pitch >= 0.0) ? (PI - imu_pitch) : (-imu_pitch - PI);
 
         double imu_roll_delta = imu_roll_init_ - imu_roll;
         double imu_pitch_delta = imu_pitch_init_ - imu_pitch;
 
-        if( ( std::abs( imu_roll_delta ) > MAX_BODY_ROLL_COMP ) || ( std::abs( imu_pitch_delta ) > MAX_BODY_PITCH_COMP ) )
-        {
+        if ((std::abs(imu_roll_delta) > MAX_BODY_ROLL_COMP) || (std::abs(imu_pitch_delta) > MAX_BODY_PITCH_COMP)) {
             sounds_.auto_level = true;
-            controlpublisher.sounds_pub_->publish( sounds_ );
+            control.sounds_pub_->publish(sounds_);
             sounds_.auto_level = false;
         }
 
-        if( imu_roll_delta < -COMPENSATE_TO_WITHIN )
-        {
-            if( body_.orientation.roll < MAX_BODY_ROLL_COMP )
-            {
+        if (imu_roll_delta < -COMPENSATE_TO_WITHIN) {
+            if (body_.orientation.roll < MAX_BODY_ROLL_COMP) {
                 //body_.orientation.roll = body_.orientation.roll + COMPENSATE_INCREMENT;
             }
         }
 
-        if( imu_roll_delta > COMPENSATE_TO_WITHIN )
-        {
-            if( body_.orientation.roll > -MAX_BODY_ROLL_COMP )
-            {
+        if (imu_roll_delta > COMPENSATE_TO_WITHIN) {
+            if (body_.orientation.roll > -MAX_BODY_ROLL_COMP) {
                 //body_.orientation.roll = body_.orientation.roll - COMPENSATE_INCREMENT;
             }
         }
 
-        if( imu_pitch_delta < -COMPENSATE_TO_WITHIN )
-        {
-            if( body_.orientation.pitch < MAX_BODY_PITCH_COMP )
-            {
+        if (imu_pitch_delta < -COMPENSATE_TO_WITHIN) {
+            if (body_.orientation.pitch < MAX_BODY_PITCH_COMP) {
                 //body_.orientation.pitch = body_.orientation.pitch + COMPENSATE_INCREMENT;
             }
         }
 
-        if( imu_pitch_delta > COMPENSATE_TO_WITHIN )
-        {
-            if( body_.orientation.pitch > -MAX_BODY_PITCH_COMP )
-            {
+        if (imu_pitch_delta > COMPENSATE_TO_WITHIN) {
+            if (body_.orientation.pitch > -MAX_BODY_PITCH_COMP) {
                 //body_.orientation.pitch = body_.orientation.pitch - COMPENSATE_INCREMENT;
             }
         }
@@ -494,25 +449,22 @@ void Control::imuCallback( const sensor_msgs::msg::ImuConstPtr &imu_msg )
 // Partitions up the cmd_vel to the speed of the loop rate
 //==============================================================================
 
-void Control::partitionCmd_vel( geometry_msgs::msg::Twist *cmd_vel )
-{
+void Control::partitionCmd_vel(geometry_msgs::msg::Twist *cmd_vel) {
     // Instead of getting delta time we are calculating with a static division
     double dt = VELOCITY_DIVISION;
 
     double delta_th = cmd_vel_incoming_.angular.z * dt;
-    double delta_x = ( cmd_vel_incoming_.linear.x * cos( delta_th ) - cmd_vel_incoming_.linear.y * sin( delta_th ) ) * dt;
-    double delta_y = ( cmd_vel_incoming_.linear.x * sin( delta_th ) + cmd_vel_incoming_.linear.y * cos( delta_th ) ) * dt;
+    double delta_x = (cmd_vel_incoming_.linear.x * cos(delta_th) - cmd_vel_incoming_.linear.y * sin(delta_th)) * dt;
+    double delta_y = (cmd_vel_incoming_.linear.x * sin(delta_th) + cmd_vel_incoming_.linear.y * cos(delta_th)) * dt;
     cmd_vel->linear.x = delta_x;
     cmd_vel->linear.y = delta_y;
     cmd_vel->angular.z = delta_th;
 }
 
-int main(int argc, char * argv[])
-{
+int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<GetControlParams>())
-    rclcpp::spin(std::make_shared<ControlPublisher>());
-    rclcpp::spin(std::make_shared<ControlSubscriber>());
+    auto node = std::make_shared<Control>();
+    rclcpp::spin(node)
     rclcpp::shutdown();
     return 0;
 }

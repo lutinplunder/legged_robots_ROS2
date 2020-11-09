@@ -49,25 +49,18 @@ struct Trig
     double cosine;
 };
 
-class GetIKParams : public rclcpp::Node {
+class Ik : public rclcpp::Node {
 public:
-    GetIKParams(void);
-
-    void callbackIKParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
-
-private:
-    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
-};
-
-class Ik {
-public:
-    Ik(void);
+    Ik();
 
     void calculateIK(const legged_robot_msgs::msg::FeetPositions &feet, const legged_robot_msgs::msg::Pose &body,
                      legged_robot_msgs::msg::LegsJoints *legs);
 
+    void callbackIKParam();
+
 private:
     Trig getSinCos( double angle_rad );
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
     std::vector<double> COXA_TO_CENTER_X, COXA_TO_CENTER_Y; // Distance from coxa joint to the center pivot
     std::vector<double> INIT_COXA_ANGLE; // Initial coxa offsets in radians
     std::vector<double> INIT_FOOT_POS_X, INIT_FOOT_POS_Y, INIT_FOOT_POS_Z; // Start position Of feet

@@ -46,19 +46,9 @@
 // Define the class(s) for Servo Drivers.
 //==============================================================================
 
-class GetServoDriverParams : public rclcpp::Node {
+class ServoDriver : public rclcpp::Node {
 public:
-    GetServoDriverParams(void);
-
-    void callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
-
-private:
-    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
-};
-
-class ServoDriver {
-public:
-    ServoDriver(void);
+    ServoDriver();
 
     ~ServoDriver(void);
 
@@ -67,6 +57,8 @@ public:
     void makeSureServosAreOn(const sensor_msgs::msg::JointState &joint_state);
 
     void freeServos(void);
+
+    void callbackServoDriverParam();
 
 private:
     dynamixel::PortHandler *portHandler = dynamixel::PortHandler::getPortHandler(
@@ -80,6 +72,7 @@ private:
 
     void convertAngles(const sensor_msgs::msg::JointState &joint_state);
 
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
     std::vector<int> cur_pos_; // Current position of servos
     std::vector<int> goal_pos_; // Goal position of servos
     std::vector<int> pose_steps_; // Increment to use going from current position to goal position
@@ -96,7 +89,7 @@ private:
     bool torque_off = true;
     bool writeParamSuccess = true;
     bool servos_free_;
-    std::vector<std::map<string, auto>> SERVOS;
+    std::vector<std::map<std::string, auto>> SERVOS;
     int SERVO_COUNT;
     int NUMBER_OF_LEGS;        // Number of legs
     int NUMBER_OF_HEAD_JOINTS; // Number of head segments

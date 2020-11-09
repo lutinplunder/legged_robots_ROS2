@@ -29,11 +29,13 @@
 
 
 #include <servo_driver.hpp>
+
 //==============================================================================
-//  Global Parameter Client
+//  Constructor: Open USB2AX and get parameters
+// If servos are not on, no worries we read them later just to be safe
 //==============================================================================
 
-GetServoDriverParams::GetServoDriverParams() : Node("get_servo_driver_params") {
+ServoDriver::ServoDriver() : Node("servo_driver") {
     parameters_client =
             std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
 
@@ -48,60 +50,35 @@ GetServoDriverParams::GetServoDriverParams() : Node("get_servo_driver_params") {
              "NUMBER_OF_LEG_SEGMENTS",
              "NUMBER_OF_HEAD_SEGMENTS"
             },
-            std::bind(&GetServoDriverParams::callbackServoDriverParam, this, std::placeholders::_1));
-}
+            std::bind(&ServoDriver::callbackServoDriverParam, this, std::placeholders::_1));
 
-void GetServoDriverParams::callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
-    auto param = future.get();
-}
-
-//==============================================================================
-//  Constructor: Open USB2AX and get parameters
-// If servos are not on, no worries we read them later just to be safe
-//==============================================================================
-
-ServoDriver::ServoDriver( void )
-{
     // Open port
-    if ( portHandler->openPort() )
-    {
+    if (portHandler->openPort()) {
         RCLCPP_INFO(node->get_logger(), "Succeeded to open the port!");
-            // Set port baudrate
-            if ( portHandler->setBaudRate(BAUDRATE) ) RCLCPP_INFO(node->get_logger(), "Succeeded to change the baudrate!");
-            else RCLCPP_WARN(node->get_logger(), "Failed to change the baudrate!");
-            portOpenSuccess = true;
-    }
-    else RCLCPP_WARN(node->get_logger(), "Failed to open the USB port!, Ignore if using Rviz or Gazbebo");
+        // Set port baudrate
+        if (portHandler->setBaudRate(BAUDRATE)) RCLCPP_INFO(node->get_logger(), "Succeeded to change the baudrate!");
+        else RCLCPP_WARN(node->get_logger(), "Failed to change the baudrate!");
+        portOpenSuccess = true;
+    } else RCLCPP_WARN(node->get_logger(), "Failed to open the USB port!, Ignore if using Rviz or Gazbebo");
 
     // Stating servos do not have torque applied
     servos_free_ = true;
 
-    GetServoDriverParams servodriverparams;
-
-    TORQUE_ENABLE = servodriverparams.callbackServoDriverParam(param).at(0);
-    PRESENT_POSITION_L = servodriverparams.callbackServoDriverParam(param).at(1);
-    GOAL_POSITION_L = servodriverparams.callbackServoDriverParam(param).at(2);
-    SERVOS = servodriverparams.callbackServoDriverParam(param).at(3);
-    INTERPOLATION_LOOP_RATE = servodriverparams.callbackServoDriverParam(param).at(4);
-    NUMBER_OF_LEGS = servodriverparams.callbackServoDriverParam(param).at(5);
-    NUMBER_OF_LEG_JOINTS = servodriverparams.callbackServoDriverParam(param).at(6);
-    NUMBER_OF_HEAD_JOINTS = servodriverparams.callbackServoDriverParam(param).at(7);
 
     SERVO_COUNT = (NUMBER_OF_LEGS * NUMBER_OF_LEG_JOINTS) + NUMBER_OF_HEAD_JOINTS;
-    OFFSET.resize( SERVO_COUNT );
-    ID.resize( SERVO_COUNT );
-    TICKS.resize( SERVO_COUNT );
-    CENTER.resize( SERVO_COUNT );
-    MAX_RADIANS.resize( SERVO_COUNT );
-    RAD_TO_SERVO_RESOLUTION.resize( SERVO_COUNT );
-    servo_orientation_.resize( SERVO_COUNT );
-    cur_pos_.resize( SERVO_COUNT );
-    goal_pos_.resize( SERVO_COUNT );
-    write_pos_.resize( SERVO_COUNT );
-    pose_steps_.resize( SERVO_COUNT );
-    for( int i = 0; i < SERVO_COUNT; i++ )
-    {
-        int j = i+1;
+    OFFSET.resize(SERVO_COUNT);
+    ID.resize(SERVO_COUNT);
+    TICKS.resize(SERVO_COUNT);
+    CENTER.resize(SERVO_COUNT);
+    MAX_RADIANS.resize(SERVO_COUNT);
+    RAD_TO_SERVO_RESOLUTION.resize(SERVO_COUNT);
+    servo_orientation_.resize(SERVO_COUNT);
+    cur_pos_.resize(SERVO_COUNT);
+    goal_pos_.resize(SERVO_COUNT);
+    write_pos_.resize(SERVO_COUNT);
+    pose_steps_.resize(SERVO_COUNT);
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        int j = i + 1;
 
         OFFSET[i] = SERVOS[j].find("offset");
         ID[i] = SERVOS[j].find("id");
@@ -118,12 +95,25 @@ ServoDriver::ServoDriver( void )
     }
 }
 
+void ServoDriver::callbackServoDriverParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+
+    auto param = future.get();
+
+    TORQUE_ENABLE = param.at(0);
+    PRESENT_POSITION_L = param.at(1);
+    GOAL_POSITION_L = param.at(2);
+    SERVOS = param.at(3);
+    INTERPOLATION_LOOP_RATE = param.at(4);
+    NUMBER_OF_LEGS = param.at(5);
+    NUMBER_OF_LEG_JOINTS = param.at(6);
+    NUMBER_OF_HEAD_JOINTS = param.at(7);
+}
+
 //==============================================================================
 // Destructor: Turn off the torque of the servos then close the serial port
 //==============================================================================
 
-ServoDriver::~ServoDriver( void )
-{
+ServoDriver::~ServoDriver(void) {
     freeServos();
     portHandler->closePort();
 }
@@ -132,11 +122,10 @@ ServoDriver::~ServoDriver( void )
 // Convert angles to servo resolution each leg and head pan
 //==============================================================================
 
-void ServoDriver::convertAngles( const sensor_msgs::msg::JointState &joint_state )
-{
-    for( int i = 0; i < SERVO_COUNT; i++ )
-    {
-        goal_pos_[i] = CENTER[i] + round( ( joint_state.position[i] - ( servo_orientation_[i] * OFFSET[i] ) ) * RAD_TO_SERVO_RESOLUTION[i] );
+void ServoDriver::convertAngles(const sensor_msgs::msg::JointState &joint_state) {
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        goal_pos_[i] = CENTER[i] + round((joint_state.position[i] - (servo_orientation_[i] * OFFSET[i])) *
+                                         RAD_TO_SERVO_RESOLUTION[i]);
     }
 }
 
@@ -144,40 +133,32 @@ void ServoDriver::convertAngles( const sensor_msgs::msg::JointState &joint_state
 // Turn torque on and read current positions
 //==============================================================================
 
-void ServoDriver::makeSureServosAreOn( const sensor_msgs::msg::JointState &joint_state )
-{
-    if( !servos_free_ )
-    {
+void ServoDriver::makeSureServosAreOn(const sensor_msgs::msg::JointState &joint_state) {
+    if (!servos_free_) {
         // Servos are on so return
         return;
-    }
-    else
-    {
+    } else {
         // Initialize current position as cur since values would be 0 for all servos ( Possibly servos are off till now )
-        for( int i = 0; i < SERVO_COUNT; i++ )
-        {
+        for (int i = 0; i < SERVO_COUNT; i++) {
             // Read present position
-            if( packetHandler->read2ByteTxRx(portHandler, ID[i], PRESENT_POSITION_L, &currentPos, &dxl_error) == COMM_SUCCESS )
-            {
+            if (packetHandler->read2ByteTxRx(portHandler, ID[i], PRESENT_POSITION_L, &currentPos, &dxl_error) ==
+                COMM_SUCCESS) {
                 cur_pos_[i] = currentPos;
                 //RCLCPP_INFO(node->get_logger(), "[ID:%02d]  PresPos:%02d", ID[i], cur_pos_[i]);
-            }
-            else
-            {
-                if( portOpenSuccess ) RCLCPP_WARN(node->get_logger(), "Read error on [ID:%02d]", ID[i]);
+            } else {
+                if (portOpenSuccess) RCLCPP_WARN(node->get_logger(), "Read error on [ID:%02d]", ID[i]);
             }
         }
-        rclcpp::Duration( 0.1 ).sleep();
+        rclcpp::Duration(0.1).sleep();
         // Turn torque on
-        for( int i = 0; i < SERVO_COUNT; i++ ){
-            if( packetHandler->write1ByteTxRx(portHandler, ID[i], TORQUE_ENABLE, TORQUE_ON, &dxl_error) != COMM_SUCCESS && portOpenSuccess )
-            {
+        for (int i = 0; i < SERVO_COUNT; i++) {
+            if (packetHandler->write1ByteTxRx(portHandler, ID[i], TORQUE_ENABLE, TORQUE_ON, &dxl_error) !=
+                COMM_SUCCESS && portOpenSuccess) {
                 RCLCPP_WARN(node->get_logger(), "TURN TORQUE ON SERVO FAILED [ID:%02d]", ID[i]);
                 torque_on = false;
             }
         }
-        if( torque_on )
-        {
+        if (torque_on) {
             RCLCPP_INFO(node->get_logger(), "Hexapod servos torque is now ON.");
             servos_free_ = false;
         }
@@ -188,27 +169,22 @@ void ServoDriver::makeSureServosAreOn( const sensor_msgs::msg::JointState &joint
 // Updates the positions of the servos and sends USB2AX broadcast packet
 //==============================================================================
 
-void ServoDriver::transmitServoPositions( const sensor_msgs::msg::JointState &joint_state )
-{
-    dynamixel::GroupSyncWrite groupSyncWrite( portHandler, packetHandler, GOAL_POSITION_L, LEN_GOAL_POSITION );
-    convertAngles( joint_state ); // Convert angles to servo resolution
-    makeSureServosAreOn( joint_state );
+void ServoDriver::transmitServoPositions(const sensor_msgs::msg::JointState &joint_state) {
+    dynamixel::GroupSyncWrite groupSyncWrite(portHandler, packetHandler, GOAL_POSITION_L, LEN_GOAL_POSITION);
+    convertAngles(joint_state); // Convert angles to servo resolution
+    makeSureServosAreOn(joint_state);
 
     int interpolating = 0;
     int complete[SERVO_COUNT];
 
-    for( int i = 0; i < SERVO_COUNT; i++ )
-    {
+    for (int i = 0; i < SERVO_COUNT; i++) {
         // If any of these differ we need to indicate a new packet needs to be sent
-        if( cur_pos_[i] != goal_pos_[i] )
-        {
+        if (cur_pos_[i] != goal_pos_[i]) {
             interpolating++;
             pose_steps_[i] = 1;
             write_pos_[i] = cur_pos_[i];
             complete[i] = 0;
-        }
-        else
-        {
+        } else {
             // Nothing is moving on this particular servo
             pose_steps_[i] = 0;
             write_pos_[i] = goal_pos_[i];
@@ -216,35 +192,27 @@ void ServoDriver::transmitServoPositions( const sensor_msgs::msg::JointState &jo
         }
     }
 
-    rclcpp::Rate loop_rate( INTERPOLATION_LOOP_RATE ); // 900 Hz loop
+    rclcpp::Rate loop_rate(INTERPOLATION_LOOP_RATE); // 900 Hz loop
     // If nothing moved we abort no need to send packet with same positions
-    if( interpolating != 0 )
-    {
-        while( interpolating != 0 )
-        {
+    if (interpolating != 0) {
+        while (interpolating != 0) {
             // Prepare packet for broadcast
-            for( int i = 0; i < SERVO_COUNT; i++ )
-            {
-                if( pose_steps_[i] == 1 && complete[i] != 1 )
-                {
-                    if( cur_pos_[i] < goal_pos_[i] )
-                    {
+            for (int i = 0; i < SERVO_COUNT; i++) {
+                if (pose_steps_[i] == 1 && complete[i] != 1) {
+                    if (cur_pos_[i] < goal_pos_[i]) {
                         write_pos_[i] = write_pos_[i] + pose_steps_[i];
 
-                        if( write_pos_[i] >= goal_pos_[i] )
-                        {
+                        if (write_pos_[i] >= goal_pos_[i]) {
                             write_pos_[i] = goal_pos_[i];
                             complete[i] = 1;
                             interpolating--;
                         }
                     }
 
-                    if( cur_pos_[i] > goal_pos_[i] )
-                    {
+                    if (cur_pos_[i] > goal_pos_[i]) {
                         write_pos_[i] = write_pos_[i] - pose_steps_[i];
 
-                        if( write_pos_[i] <= goal_pos_[i] )
-                        {
+                        if (write_pos_[i] <= goal_pos_[i]) {
                             write_pos_[i] = goal_pos_[i];
                             complete[i] = 1;
                             interpolating--;
@@ -254,24 +222,22 @@ void ServoDriver::transmitServoPositions( const sensor_msgs::msg::JointState &jo
                 // Complete sync_write packet for broadcast
                 param_goal_position[0] = DXL_LOBYTE(write_pos_[i]);
                 param_goal_position[1] = DXL_HIBYTE(write_pos_[i]);
-                if( !groupSyncWrite.addParam(ID[i], param_goal_position) && portOpenSuccess )
-                {
+                if (!groupSyncWrite.addParam(ID[i], param_goal_position) && portOpenSuccess) {
                     RCLCPP_WARN(node->get_logger(), "Goal position param write failed on [ID:%02d]", ID[i]);
                     writeParamSuccess = false;
                 }
 
             }
             // Broadcast packet over U2D2
-            if( writeParamSuccess )
-            {
-                if( groupSyncWrite.txPacket() != COMM_SUCCESS && portOpenSuccess ) RCLCPP_WARN(node->get_logger(), "Position write not successfull!!");
+            if (writeParamSuccess) {
+                if (groupSyncWrite.txPacket() != COMM_SUCCESS && portOpenSuccess)
+                    RCLCPP_WARN(node->get_logger(), "Position write not successfull!!");
             }
             groupSyncWrite.clearParam();
             loop_rate.sleep();
         }
         // Store write pose as current pose (goal) since we are now done
-        for( int i = 0; i < SERVO_COUNT; i++ )
-        {
+        for (int i = 0; i < SERVO_COUNT; i++) {
             cur_pos_[i] = write_pos_[i];
         }
     }
@@ -282,28 +248,24 @@ void ServoDriver::transmitServoPositions( const sensor_msgs::msg::JointState &jo
 // Turn torque off to all servos
 //==============================================================================
 
-void ServoDriver::freeServos( void )
-{
+void ServoDriver::freeServos(void) {
     // Turn off torque
-        for( int i = 0; i < SERVO_COUNT; i++ )
-        {
-            if( packetHandler->write1ByteTxRx(portHandler, ID[i], TORQUE_ENABLE, TORQUE_OFF, &dxl_error) != COMM_SUCCESS && portOpenSuccess )
-            {
-                RCLCPP_WARN(node->get_logger(), "TURN TORQUE OFF FAILED ON SERVO [ID:%02d]", ID[i]);
-                torque_off = false;
-            }
+    for (int i = 0; i < SERVO_COUNT; i++) {
+        if (packetHandler->write1ByteTxRx(portHandler, ID[i], TORQUE_ENABLE, TORQUE_OFF, &dxl_error) != COMM_SUCCESS &&
+            portOpenSuccess) {
+            RCLCPP_WARN(node->get_logger(), "TURN TORQUE OFF FAILED ON SERVO [ID:%02d]", ID[i]);
+            torque_off = false;
         }
-        if( torque_off )
-        {
-            RCLCPP_INFO(node->get_logger(), "Hexapod servos torque is now OFF.");
-            servos_free_ = true;
-        }
+    }
+    if (torque_off) {
+        RCLCPP_INFO(node->get_logger(), "Hexapod servos torque is now OFF.");
+        servos_free_ = true;
+    }
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<GetServoDriverParams>();
+    auto node = std::make_shared<ServoDriver>();
     rclcpp::spin(node);
     rclcpp::shutdown();
 }

@@ -34,10 +34,10 @@
 static const double PI = atan(1.0) * 4.0;
 
 //==============================================================================
-//  Global Parameter Client
+//  Constructor: Initialize gait variables
 //==============================================================================
 
-GetGaitParams::GetGaitParams() : Node("get_gait_params") {
+Gait::Gait() : Node("get_gait_params") {
     parameters_client =
             std::make_shared<rclcpp::AsyncParametersClient>(this, "/legged_robot_parameter_server");
 
@@ -48,47 +48,39 @@ GetGaitParams::GetGaitParams() : Node("get_gait_params") {
              "NUMBER_OF_LEGS",
              "GAIT_STYLE"
             },
-            std::bind(&GetGaitParams::callbackGaitParam, this, std::placeholders::_1));
+            std::bind(&Gait::callbackGaitParam, this, std::placeholders::_1));
 }
 
-void GetGaitParams::callbackGaitParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
+cycle_period_ = 25;
+is_travelling_ = false;
+in_cycle_ = false;
+extra_gait_cycle_ = 1;
+current_time_ = rclcpp::Time::now();
+last_time_ = rclcpp::Time::now();
+if (GAIT_STYLE == "TETRAPOD") {
+gait_factor = 1.0;
+cycle_leg_number_ = {1, 0, 0, 1, 1, 0, 0, 1};
+}
+if (GAIT_STYLE == "TRIPOD") {
+gait_factor = 1.0;
+cycle_leg_number_ = {0, 1, 1, 0, 0, 1};
+}
+if (GAIT_STYLE == "RIPPLE") {
+gait_factor = 0.5;
+cycle_leg_number_ = {1, 2, 2, 0, 0, 1};
+}
+period_distance = 0;
+period_height = 0;
+}
+
+void Gait::callbackGaitParam(std::shared_future <std::vector<rclcpp::Parameter>> future) {
     auto param = future.get();
+
+    CYCLE_LENGTH = param.at(0);
+    LEG_LIFT_HEIGHT = param.at(1);
+    NUMBER_OF_LEGS = param.at(2);
+    GAIT_STYLE = param.at(3);
 }
-
-//==============================================================================
-//  Constructor: Initialize gait variables
-//==============================================================================
-
-Gait::Gait(void) {
-    GetGaitParams gaitparams;
-
-    CYCLE_LENGTH = gaitparams.callbackGaitParam(param).at(0);
-    LEG_LIFT_HEIGHT = gaitparams.callbackGaitParam(param).at(1);
-    NUMBER_OF_LEGS = gaitparams.callbackGaitParam(param).at(2);
-    GAIT_STYLE = gaitparams.callbackGaitParam(param).at(3);
-
-    cycle_period_ = 25;
-    is_travelling_ = false;
-    in_cycle_ = false;
-    extra_gait_cycle_ = 1;
-    current_time_ = rclcpp::Time::now();
-    last_time_ = rclcpp::Time::now();
-    if (GAIT_STYLE == "TETRAPOD") {
-        gait_factor = 1.0;
-        cycle_leg_number_ = {1, 0, 0, 1, 1, 0, 0, 1};
-    }
-    if (GAIT_STYLE == "TRIPOD") {
-        gait_factor = 1.0;
-        cycle_leg_number_ = {0, 1, 1, 0, 0, 1};
-    }
-    if (GAIT_STYLE == "RIPPLE") {
-        gait_factor = 0.5;
-        cycle_leg_number_ = {1, 2, 2, 0, 0, 1};
-    }
-    period_distance = 0;
-    period_height = 0;
-}
-
 //=============================================================================
 // step calculation
 //=============================================================================
@@ -209,10 +201,9 @@ void Gait::sequence_change(std::vector<int> &vec) {
     }
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<GetGaitParams>();
+    auto node = std::make_shared<Gait>();
     rclcpp::spin(node);
     rclcpp::shutdown();
 }

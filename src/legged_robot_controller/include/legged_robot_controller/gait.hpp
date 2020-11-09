@@ -43,22 +43,14 @@
 // Define structs and classes for gait system
 //=============================================================================
 
-class GetGaitParams : public rclcpp::Node {
+class Gait : public rclcpp::Node {
 public:
-    GetGaitParams();
-
-    void callbackGaitParam(std::shared_future <std::vector<rclcpp::Parameter>> future);
-
-private:
-    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
-};
-
-class Gait {
-public:
-    Gait(void);
+    Gait();
 
     void gaitCycle(const geometry_msgs::msg::Twist &cmd_vel, legged_robot_msgs::msg::FeetPositions *feet,
                    geometry_msgs::msg::Twist *gait_vel);
+
+    void callbackGaitParam();
 
 private:
     void cyclePeriod(const geometry_msgs::msg::Pose2D &base, legged_robot_msgs::msg::FeetPositions *feet,
@@ -66,6 +58,7 @@ private:
 
     void sequence_change(std::vector<int> &vec);
 
+    std::shared_ptr <rclcpp::AsyncParametersClient> parameters_client;
     geometry_msgs::msg::Pose2D smooth_base_;
     rclcpp::Time current_time_, last_time_;
     bool is_travelling_;      // True if the robot is moving, not just in a cycle
